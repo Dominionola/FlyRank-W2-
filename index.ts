@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import { error } from "node:console";
 
 const app = express();
 
@@ -42,17 +43,29 @@ app.get("/tasks", (req: Request, res: Response) => {
   res.status(200).json({ message: "Sucesfully fetched task", tasks });
 });
 
-app.post("/tasks", (req: Request<{}, {}, Task>, res: Response) => {
-  const { id, title, done } = req.body;
+interface CreateNewTask {
+  title: string;
+}
 
-  if (!id || !title || done === undefined) {
-    res.status(400).json({ message: "Missing required fields" });
+app.post("/tasks", (req: Request<{}, {}, CreateNewTask>, res: Response) => {
+  const { title } = req.body;
+
+  if (!title) {
+    res.status(400).json({ message: "Missing required field: title" });
     return;
   }
 
+  const newTask: Task = {
+    id: tasks.length > 0 ? Math.max(...tasks.map((task) => task.id)) + 1 : 1,
+    title: title,
+    done: false,
+  };
+
+  tasks.push(newTask);
+
   res.status(201).json({
     message: "task successfully created",
-    data: { id, title, done },
+    data: newTask,
   });
 });
 
@@ -103,6 +116,18 @@ app.put(
   },
 );
 
+app.delete("/task/:id", (req: Request<TaskParams>, res: Response) => {
+  const tasksId = parseInt(req.params.id);
+  const taskindex = tasks.findIndex((t) => t.id === tasksId);
+
+  if (taskindex === -1) {
+    res.status(400).json({ error: `Task ${tasksId} not found` });
+  }
+
+  tasks.splice(taskindex, 1);
+
+  res.status(204).json({ message: "Task deleted sucessfully " });
+});
 const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);
