@@ -23,7 +23,7 @@ const tasks: Task[] = [
     done: false,
   },
   {
-    id: 1,
+    id: 3,
     title: "learn NestJS",
     done: false,
   },
@@ -40,7 +40,7 @@ app.get("/health", (req: Request, res: Response) => {
 });
 
 app.get("/tasks", (req: Request, res: Response) => {
-  res.status(200).json({ message: "Sucesfully fetched task", tasks });
+  res.status(200).json(tasks);
 });
 
 interface CreateNewTask {
@@ -74,11 +74,15 @@ interface TaskParams {
 }
 
 app.get("/tasks/:id", (req: Request<TaskParams>, res: Response) => {
-  const tasksId = req.params.id;
+  const taskId = Number(req.params.id);
+  const task = tasks.find((task) => task.id === taskId);
 
-  res.status(200).json({
-    message: `Fecthching task with ${tasksId}`,
-  });
+  if (!task) {
+    res.status(404).json({ error: `Task ${taskId} not found` });
+    return;
+  }
+
+  res.status(200).json(task);
 });
 
 interface UpdateTaskBody {
@@ -116,7 +120,7 @@ app.put(
   },
 );
 
-app.delete("/task/:id", (req: Request<TaskParams>, res: Response) => {
+app.delete("/tasks/:id", (req: Request<TaskParams>, res: Response) => {
   const tasksId = parseInt(req.params.id);
   const taskindex = tasks.findIndex((t) => t.id === tasksId);
 
