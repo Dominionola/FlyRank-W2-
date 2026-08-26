@@ -1,0 +1,83 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Task API",
+    "version": "1.0.0",
+    "description": "A simple CRUD API for managing tasks."
+  },
+  "paths": {
+    "/tasks": {
+      "get": {
+        "summary": "Get all tasks",
+        "responses": {
+          "200": { "description": "Successfully fetched tasks" }
+        }
+      },
+      "post": {
+        "summary": "Create a new task",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "example": "Buy milk" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Task successfully created" },
+          "400": { "description": "Missing required fields" }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "get": {
+        "summary": "Get a single task by ID",
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Successfully fetched task" },
+          "404": { "description": "Task not found" }
+        }
+      },
+      "put": {
+        "summary": "Update a task",
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string", "example": "Buy almond milk" },
+                  "done": { "type": "boolean", "example": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Task updated successfully" },
+          "404": { "description": "Task not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete a task",
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "204": { "description": "No Content" },
+          "404": { "description": "Task not found" }
+        }
+      }
+    }
+  }
+}

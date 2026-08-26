@@ -1,9 +1,15 @@
 import express, { Request, Response } from "express";
+import swaggerUI from "swagger-ui-express";
+import fs from "fs";
 import { error } from "node:console";
 
 const app = express();
 
 app.use(express.json());
+
+const swaggerDocument = JSON.parse(fs.readFileSync("./openapi.json", "utf8"));
+
+app.use("/docs", swaggerUI.serve, swaggerUI.setup(swaggerDocument));
 
 interface Task {
   id: number;
