@@ -45,10 +45,6 @@ app.get("/health", (req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
 
-app.get("/tasks", (req: Request, res: Response) => {
-  res.status(200).json(tasks);
-});
-
 interface CreateNewTask {
   title: string;
 }
@@ -138,6 +134,31 @@ app.delete("/tasks/:id", (req: Request<TaskParams>, res: Response) => {
 
   res.status(204).json({ message: "Task deleted sucessfully " });
 });
+
+app.get("/tasks", (req: Request, res: Response) => {
+  const { done, search } = req.query;
+  const searchTerm = typeof search === "string" ? search.toLowerCase() : "";
+
+  if (done !== undefined || searchTerm !== "") {
+    const isDone = done === "true";
+    const filteredTask = tasks.filter(
+      (task) =>
+        (done === undefined || task.done === isDone) &&
+        (searchTerm === "" || task.title.toLowerCase().includes(searchTerm)),
+    );
+
+    if (filteredTask.length === 0) {
+      res.status(200).json({ message: "No task meets this criteria" });
+    } else {
+      res.status(200).json(filteredTask);
+    }
+
+    return;
+  }
+
+  res.status(200).json(tasks);
+});
+
 const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`Running on port ${PORT}`);
