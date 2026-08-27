@@ -2,6 +2,8 @@ import express, { Request, Response } from "express";
 import swaggerUI from "swagger-ui-express";
 import fs from "fs";
 import { error } from "node:console";
+import { toASCII } from "node:punycode";
+import { open } from "node:inspector/promises";
 
 const app = express();
 
@@ -157,6 +159,43 @@ app.get("/tasks", (req: Request, res: Response) => {
   }
 
   res.status(200).json(tasks);
+});
+
+app.get("/stats", (req: Request, res: Response) => {
+  const total = tasks.length;
+
+  const doneCount = tasks.filter((task) => task.done === true).length;
+
+  const openCount = total - doneCount;
+
+  res.status(200).json({ total: total, done: doneCount, open: openCount });
+});
+
+app.post("/reset", (req: Request, res: Response) => {
+  tasks.length = 0;
+
+  tasks.push(
+    {
+      id: 1,
+      title: "write function",
+      done: false,
+    },
+    {
+      id: 2,
+      title: "connect project to git",
+      done: false,
+    },
+    {
+      id: 3,
+      title: "learn NestJS",
+      done: false,
+    },
+  );
+
+  res.status(200).json({
+    message: "Database reset successfully",
+    tasks: tasks,
+  });
 });
 
 const PORT = 3000;
