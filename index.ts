@@ -12,6 +12,26 @@ app.use(express.json());
 
 const db = new Database("tasks.db");
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tasks
+  (id INTEGER PRIMARY KEY,
+  title TEXT,
+  done INTEGER)`);
+
+const rowCount = db.prepare("SELECT COUNT(*) as count FROM tasks").get() as {
+  count: number;
+};
+
+if (rowCount.count === 0) {
+  const insert = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
+
+  insert.run("write function", 0);
+  insert.run("connect project to git", 0);
+  insert.run("learn NestJS", 0);
+
+  console.log("Database seeded with 3 example tasks.");
+}
+
 const swaggerDocument = JSON.parse(fs.readFileSync("./openapi.json", "utf8"));
 
 app.use("/docs", swaggerUI.serve, swaggerUI.setup(swaggerDocument));
