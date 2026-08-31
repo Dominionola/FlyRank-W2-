@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import swaggerUI from "swagger-ui-express";
 import fs from "fs";
+import Database from "better-sqlite3";
 import { error } from "node:console";
 import { toASCII } from "node:punycode";
 import { open } from "node:inspector/promises";
@@ -8,6 +9,8 @@ import { open } from "node:inspector/promises";
 const app = express();
 
 app.use(express.json());
+
+const db = new Database("tasks.db");
 
 const swaggerDocument = JSON.parse(fs.readFileSync("./openapi.json", "utf8"));
 
