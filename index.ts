@@ -2,9 +2,6 @@ import express, { Request, Response } from "express";
 import swaggerUI from "swagger-ui-express";
 import fs from "fs";
 import Database from "better-sqlite3";
-import { error } from "node:console";
-import { toASCII } from "node:punycode";
-import { open } from "node:inspector/promises";
 
 const app = express();
 
@@ -42,28 +39,10 @@ interface Task {
   done: boolean;
 }
 
-const tasks: Task[] = [
-  {
-    id: 1,
-    title: "write function",
-    done: false,
-  },
-  {
-    id: 2,
-    title: "connect project to git",
-    done: false,
-  },
-  {
-    id: 3,
-    title: "learn NestJS",
-    done: false,
-  },
-];
-
 app.get("/", (req: Request, res: Response) => {
   res
     .status(200)
-    .json({ name: "Task API", version: "1.0", enpionts: "[/tasks]" });
+    .json({ name: "Task API", version: "1.0", endpoints: ["/tasks"] });
 });
 
 app.get("/health", (req: Request, res: Response) => {
@@ -81,18 +60,16 @@ app.post("/tasks", (req: Request<{}, {}, CreateNewTask>, res: Response) => {
     res.status(400).json({ message: "Missing required field: title" });
     return;
   }
-
-  const newTask: Task = {
-    id: tasks.length > 0 ? Math.max(...tasks.map((task) => task.id)) + 1 : 1,
-    title: title,
-    done: false,
-  };
-
-  tasks.push(newTask);
+  const insert = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
+  const info = insert.run(title, 0);
 
   res.status(201).json({
     message: "task successfully created",
-    data: newTask,
+    data: {
+      id: info.lastInsertRowid,
+      title: title,
+      done: false,
+    },
   });
 });
 
@@ -102,12 +79,16 @@ interface TaskParams {
 
 app.get("/tasks/:id", (req: Request<TaskParams>, res: Response) => {
   const taskId = Number(req.params.id);
-  const task = tasks.find((task) => task.id === taskId);
+  const task = db
+    .prepare("SELECT * FROM tasks WHERE id = ?")
+    .get(taskId) as any;
 
   if (!task) {
     res.status(404).json({ error: `Task ${taskId} not found` });
     return;
   }
+
+  task.done = task.done === 1;
 
   res.status(200).json(task);
 });
@@ -124,49 +105,69 @@ app.put(
     const { title, done } = req.body;
 
     if (title === undefined && done === undefined) {
-      res.status(400).json({ error: "Empty or Invalid body " });
+      res.status(400).json({ error: "Empty or Invalid body" });
       return;
     }
 
-    const taskIndex = tasks.findIndex((t) => t.id === tasksId);
+    const task = db
+      .prepare("SELECT * FROM tasks WHERE id = ?")
+      .get(tasksId) as any;
 
-    if (taskIndex === -1) {
+    if (!task) {
       res.status(400).json({ error: `Task ${tasksId} not found` });
+      return;
     }
 
     if (title !== undefined) {
-      tasks[taskIndex].title = title;
+      db.prepare("UPDATE tasks SET title = ? WHERE id = ?").run(title, tasksId);
     }
     if (done !== undefined) {
-      tasks[taskIndex].done = done;
+      db.prepare("UPDATE tasks SET done = ? WHERE id = ?").run(
+        done ? 1 : 0,
+        tasksId,
+      );
     }
+
+    const updatedTask = db
+      .prepare("SELECT * FROM tasks WHERE id = ?")
+      .get(tasksId) as any;
+    updatedTask.done = updatedTask.done === 1;
 
     res
       .status(200)
-      .json({ message: "Task updated sucessfully", task: tasks[taskIndex] });
+      .json({ message: "Task updated successfully", task: updatedTask });
   },
 );
 
 app.delete("/tasks/:id", (req: Request<TaskParams>, res: Response) => {
   const tasksId = parseInt(req.params.id);
-  const taskindex = tasks.findIndex((t) => t.id === tasksId);
+  const task = db
+    .prepare("SELECT * FROM tasks WHERE id = ?")
+    .get(tasksId) as any;
 
-  if (taskindex === -1) {
+  if (!task) {
     res.status(400).json({ error: `Task ${tasksId} not found` });
+    return;
   }
 
-  tasks.splice(taskindex, 1);
+  db.prepare("DELETE FROM tasks WHERE id = ?").run(tasksId);
 
-  res.status(204).json({ message: "Task deleted sucessfully " });
+  res.status(204).json({ message: "Task deleted successfully" });
 });
 
 app.get("/tasks", (req: Request, res: Response) => {
   const { done, search } = req.query;
   const searchTerm = typeof search === "string" ? search.toLowerCase() : "";
+  const tasksFromDB = db.prepare("SELECT * FROM tasks").all() as any[];
+
+  const formattedTasks = tasksFromDB.map((task) => ({
+    ...task,
+    done: task.done === 1,
+  }));
 
   if (done !== undefined || searchTerm !== "") {
     const isDone = done === "true";
-    const filteredTask = tasks.filter(
+    const filteredTask = formattedTasks.filter(
       (task) =>
         (done === undefined || task.done === isDone) &&
         (searchTerm === "" || task.title.toLowerCase().includes(searchTerm)),
@@ -181,43 +182,41 @@ app.get("/tasks", (req: Request, res: Response) => {
     return;
   }
 
-  res.status(200).json(tasks);
+  res.status(200).json(formattedTasks);
 });
 
 app.get("/stats", (req: Request, res: Response) => {
-  const total = tasks.length;
+  const totalResult = db
+    .prepare("SELECT COUNT(*) as count FROM tasks")
+    .get() as { count: number };
+  const doneResult = db
+    .prepare("SELECT COUNT(*) as count FROM tasks WHERE done = 1")
+    .get() as { count: number };
 
-  const doneCount = tasks.filter((task) => task.done === true).length;
-
+  const total = totalResult.count;
+  const doneCount = doneResult.count;
   const openCount = total - doneCount;
 
   res.status(200).json({ total: total, done: doneCount, open: openCount });
 });
 
 app.post("/reset", (req: Request, res: Response) => {
-  tasks.length = 0;
+  db.prepare("DELETE FROM tasks").run();
 
-  tasks.push(
-    {
-      id: 1,
-      title: "write function",
-      done: false,
-    },
-    {
-      id: 2,
-      title: "connect project to git",
-      done: false,
-    },
-    {
-      id: 3,
-      title: "learn NestJS",
-      done: false,
-    },
-  );
+  const insert = db.prepare("INSERT INTO tasks (title, done) VALUES (?, ?)");
+  insert.run("write function", 0);
+  insert.run("connect project to git", 0);
+  insert.run("learn NestJS", 0);
+
+  const tasks = db.prepare("SELECT * FROM tasks").all() as any[];
+  const formattedTasks = tasks.map((task) => ({
+    ...task,
+    done: task.done === 1,
+  }));
 
   res.status(200).json({
     message: "Database reset successfully",
-    tasks: tasks,
+    tasks: formattedTasks,
   });
 });
 
